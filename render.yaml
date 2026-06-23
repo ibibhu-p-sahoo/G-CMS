@@ -1,0 +1,10 @@
+# Render.com blueprint — deploys the GITAM CMS using the Dockerfile.
+# Render automatically sets the PORT env var; server.py reads it.
+services:
+  - type: web
+    name: gitam-cms
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /index.html
+    autoDeploy: true

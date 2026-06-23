@@ -1,0 +1,2 @@
+# GITAM CMS uses only the Python standard library — no external packages needed.
+# This file exists so platforms (Render/PythonAnywhere) detect a Python app.

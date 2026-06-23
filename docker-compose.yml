@@ -1,0 +1,60 @@
+# GITAM CMS — 3-container setup
+#   frontend (Nginx)  ->  backend (Python API)  ->  db (PostgreSQL)
+#
+#   docker compose up -d --build      # build + start all three
+#   open http://localhost:5500
+#   docker compose down               # stop (database volume is kept)
+
+services:
+  # 🟨 Database — PostgreSQL
+  db:
+    image: postgres:16-alpine
+    container_name: gitam-db
+    environment:
+      POSTGRES_DB: gitam
+      POSTGRES_USER: gitam
+      POSTGRES_PASSWORD: gitam
+    volumes:
+      - gitam-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitam -d gitam"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # 🟩 Backend — Python REST API
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: gitam-backend
+    environment:
+      DB_BACKEND: postgres
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: gitam
+      PGUSER: gitam
+      PGPASSWORD: gitam
+      PORT: "5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "5000"
+    restart: unless-stopped
+
+  # 🟦 Frontend — Nginx (static UI + /api proxy)
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend.Dockerfile
+    container_name: gitam-frontend
+    ports:
+      - "5500:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  gitam-pgdata:
