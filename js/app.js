@@ -520,6 +520,8 @@
   }
   function facultyForm(id) {
     const f = id ? Store.find('faculty', id) : {};
+    // existing login account linked to this faculty (for edit)
+    const acct = id ? Store.all('users').find(u => u.refId === id && u.role === 'faculty') : null;
     openModal((id?'Edit':'Add')+' Faculty', `<form id="f">
       <div class="form-grid">
         <div class="field"><label>Employee ID</label><input name="empId" value="${esc(f.empId||'')}" required></div>
@@ -529,13 +531,36 @@
         <div class="field"><label>Email</label><input name="email" type="email" value="${esc(f.email||'')}"></div>
         <div class="field"><label>Phone</label><input name="phone" value="${esc(f.phone||'')}"></div>
       </div>
+      <h4 style="font-size:13px;color:var(--primary-dark);margin:18px 0 8px">LOGIN ACCOUNT</h4>
+      <div class="form-grid">
+        <div class="field"><label>Username</label><input name="username" value="${esc(acct?acct.username:'')}" required></div>
+        <div class="field"><label>Password</label><input name="password" type="text" value="" placeholder="${id?'leave blank to keep current':'set a password'}" ${id?'':'required'}></div>
+      </div>
       <div class="form-actions"><button type="button" class="btn-outline" id="cx">Cancel</button>
         <button type="submit" class="btn-primary">Save</button></div></form>`);
     $('#cx').onclick = closeModal;
     $('#f').onsubmit = (e) => {
       e.preventDefault();
       const d = formData(e.target);
-      if (id) Store.update('faculty', id, d); else Store.add('faculty', d);
+      const username = (d.username||'').trim();
+      const password = (d.password||'').trim();
+      delete d.username; delete d.password;
+
+      // username must be unique across all login accounts
+      const clash = Store.all('users').find(u =>
+        (u.username||'').toLowerCase() === username.toLowerCase() && !(acct && u.id === acct.id));
+      if (clash) { toast('Username "'+username+'" already taken.'); return; }
+
+      if (id) {
+        Store.update('faculty', id, d);
+        const patch = { username, role:'faculty', refId:id, name:d.name };
+        if (password) patch.password = password;
+        if (acct) Store.update('users', acct.id, patch);
+        else Store.add('users', { username, password: password||'pass123', role:'faculty', refId:id, name:d.name });
+      } else {
+        const fac = Store.add('faculty', d);
+        Store.add('users', { username, password, role:'faculty', refId: fac.id, name: fac.name });
+      }
       closeModal(); toast('Faculty saved.'); render();
     };
   }
